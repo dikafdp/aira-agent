@@ -1,0 +1,8 @@
+use_default_settings: true
+server:
+  base_url: http://localhost:8080/
+  secret_key: "aira_kanaya_secret"
+search:
+  formats:
+    - html
+    - json 

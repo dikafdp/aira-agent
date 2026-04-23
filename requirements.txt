@@ -1,0 +1,14 @@
+# Web Framework & Server
+fastapi
+uvicorn
+pydantic
+
+# AI & Graph Agent
+langchain-ollama
+langgraph
+
+# Environment Variables
+python-dotenv
+
+# HTTP Client (Untuk integrasi Tool: Medis, Cuaca, Search, Image)
+requests
