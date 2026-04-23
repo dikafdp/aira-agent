@@ -16,7 +16,7 @@ def classify_domain(state: AgentState):
         return bool(re.search(pattern, text))
 
     # ----------------------------
-    # PRIORITAS 1: Image Generation (Paling spesifik kalimatnya)
+    # PRIORITAS 1: Image Generation
     # ----------------------------
     image_keywords = [
         "buat gambar", "bikin gambar", "generate gambar", "buatkan gambar",

@@ -4,6 +4,7 @@ from langchain_ollama import ChatOllama
 #from langchain_community.utilities import SearxSearchWrapper
 
 load_dotenv("secrets/.env")
+load_dotenv("secrets/.env", override=True)
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://192.168.253.29:11434")

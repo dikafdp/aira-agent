@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     command: "http fastapi:8000 --url=perkingly-gawkiest-irina.ngrok-free.dev --log=stdout"
     environment:
-      NGROK_AUTHTOKEN: "3C74g48Wiv2Jk8CJlU73OxXxo54_4Fx4em8VYEMQTc23usSaX"
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     depends_on:
       - fastapi
   

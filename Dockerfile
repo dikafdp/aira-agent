@@ -1,9 +1,7 @@
-# Gunakan tag OS yang spesifik (bookworm adalah Debian 12 terbaru yang lebih aman)
 FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-# [BARIS TAMBAHAN] Update package list dan upgrade semua paket OS untuk menambal CVE
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get clean && \
