@@ -16,6 +16,11 @@ def _extract_search_query(user_input: str) -> str:
 def _detect_search_mode(user_input: str) -> str:
     text = user_input.lower()
 
+    image_keywords = [
+        "cari gambar", "carikan gambar", "search gambar",
+        "cari foto", "foto", "gambar"
+    ]
+    
     link_keywords = [
         "link", "tautan", "url", "sumber", "referensi",
         "website", "web", "laman", "artikel asli"
@@ -26,6 +31,8 @@ def _detect_search_mode(user_input: str) -> str:
         "headline", "daftar berita", "kumpulan berita",
         "berita hari ini"
     ]
+    if any(keyword in text for keyword in image_keywords):
+        return "images"
 
     if any(keyword in text for keyword in link_keywords):
         return "links"

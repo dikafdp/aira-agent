@@ -1,5 +1,6 @@
 import re
 import requests
+import base64
 from urllib.parse import urlparse
 
 from state import AgentState
@@ -53,7 +54,7 @@ def _normalize_results(raw_results: list) -> list:
 def _format_links(query: str, results: list) -> str:
     lines = [f"Berikut beberapa sumber untuk topik: {query}\n"]
 
-    for i, item in enumerate(results[:3], 1):
+    for i, item in enumerate(results[:7], 1):
         lines.append(f"{i}. {item['title']}")
         lines.append(f"   {item['url']}")
         if item["snippet"]:
@@ -70,8 +71,8 @@ def _remove_raw_urls(text: str) -> str:
 
 
 def _fallback_answer(query: str, results: list, mode: str) -> str:
-    snippets = [item["snippet"] for item in results[:3] if item.get("snippet")]
-    sources = [item["source"] for item in results[:3] if item.get("source")]
+    snippets = [item["snippet"] for item in results[:5] if item.get("snippet")]
+    sources = [item["source"] for item in results[:5] if item.get("source")]
 
     if mode == "news":
         if snippets:
@@ -94,11 +95,13 @@ def _generate_natural_answer(user_input: str, query: str, mode: str, results: li
     context_blocks = []
 
     for i, item in enumerate(results[:5], 1):
+        snippet_text = item['snippet']
+        if len(snippet_text) > 250:
+            snippet_text = snippet_text[:250] + "..."
         context_blocks.append(
             f"[{i}]\n"
             f"Judul: {item['title']}\n"
             f"Sumber: {item['source']}\n"
-            f"URL: {item['url']}\n"
             f"Ringkasan: {item['snippet']}\n"
         )
 
@@ -108,13 +111,13 @@ def _generate_natural_answer(user_input: str, query: str, mode: str, results: li
 Anda adalah Aira, asisten AI berbahasa Indonesia.
 
 Tugas Anda:
-- Jawab pertanyaan pengguna secara natural, seperti gaya ChatGPT.
-- Gunakan data hasil pencarian web yang diberikan.
-- Jangan tampilkan daftar link mentah, URL, atau format seperti mesin pencari,
-  KECUALI pengguna secara eksplisit meminta link, sumber, tautan, referensi, atau daftar berita.
-- Jika informasi masih berkembang, gunakan frasa seperti: "berdasarkan hasil pencarian saat ini".
+- Jawab pertanyaan pengguna secara natural, komprehensif, mendetail, akurat, dan to the point.
+- WAJIB gunakan minimal 2 atau 3 paragraf untuk menjelaskan topik secara mendalam.
+- Jika ada banyak informasi, susun menggunakan poin-poin (bullet points) agar rapi dan informatif.
+- Gunakan data hasil pencarian web yang diberikan di bawah ini.
+- Dilarang mengarang informasi (halusinasi).
+- Jangan tampilkan daftar link mentah, URL, atau format seperti mesin pencari, KECUALI pengguna secara eksplisit meminta link.
 - Jangan membuka jawaban dengan kalimat seperti "Hasil pencarian untuk:".
-- Fokus pada inti jawaban, bukan daftar situs.
 
 Mode jawaban: {mode}
 Pertanyaan pengguna: {user_input}
@@ -123,7 +126,7 @@ Query pencarian: {query}
 Data web:
 {context}
 
-Tulis jawaban akhir untuk pengguna dalam bahasa Indonesia.
+Berikan jawaban langsung tanpa kalimat pembuka yang bertele-tele.
 """
 
     try:
@@ -150,6 +153,8 @@ def execute_search(state: AgentState):
     if not query:
         return {"final_answer": "Query kosong, tidak bisa mencari."}
 
+    category = "images" if mode == "images" else "general"
+
     try:
         response = requests.get(
             f"{SEARXNG_URL}/search",
@@ -158,7 +163,7 @@ def execute_search(state: AgentState):
                 "format": "json",
                 "language": "id-ID",
                 "safesearch": 1,
-                "categories": "general"
+                "categories": category
             },
             headers=SEARXNG_HEADERS,
             timeout=SEARXNG_TIMEOUT
@@ -167,7 +172,55 @@ def execute_search(state: AgentState):
 
         data = response.json()
         raw_results = data.get("results", [])
-        results = _normalize_results(raw_results)[:5]
+        
+        if mode == "images":
+            if raw_results:
+                image_url = ""
+                for item in raw_results:
+                    candidate_url = item.get("img_src") or item.get("thumbnail") or ""
+                    
+                    if not candidate_url:
+                        continue
+
+                    if candidate_url.lower().endswith((".svg", ".ico")):
+                        continue
+                        
+                    if candidate_url.startswith("//"):
+                        candidate_url = "https:" + candidate_url
+                        
+                    if candidate_url.startswith("http"):
+                        try:
+                            img_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                            img_res = requests.get(candidate_url, headers=img_headers, timeout=5)
+                            
+                            if img_res.status_code == 200:
+                                content_type = img_res.headers.get('Content-Type', '').lower()
+
+                                if 'text/' in content_type or 'html' in content_type or 'svg' in content_type:
+                                    continue 
+                                    
+                                if not content_type:
+                                    content_type = 'image/jpeg' 
+                                
+                                base64_encoded = base64.b64encode(img_res.content).decode('utf-8')
+                                image_url = f"data:{content_type};base64,{base64_encoded}"
+                                
+                                break 
+                        except:
+                            continue
+                            
+                if image_url:
+                    return {
+                        "search_results": raw_results[:2],
+                        "final_answer": f"🖼️ Berikut adalah gambar dari internet untuk: {query}",
+                        "image_url": image_url 
+                    }
+                    
+            return {
+                "search_results": [],
+                "final_answer": f"Maaf, saya tidak menemukan gambar yang bisa diakses untuk: {query}"
+            }
+        results = _normalize_results(raw_results)[:7]
 
         if not results:
             return {
@@ -179,7 +232,8 @@ def execute_search(state: AgentState):
             final_answer = _format_links(query, results)
 
         elif mode == "news":
-            final_answer = _generate_natural_answer(user_input, query, mode, results)
+            final_answer = _format_links(query, results) 
+            final_answer = final_answer.replace("Berikut beberapa sumber", "Berikut adalah berita terkini")
 
         else:
             final_answer = _generate_natural_answer(user_input, query, "answer", results)
